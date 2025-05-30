@@ -56,7 +56,9 @@ def transform_df(df: pl.DataFrame) -> pl.DataFrame:
     result = \
         df.filter(
             pl.col('col_2') == '200 lb. Test'
-        ).with_columns(
+        ) \
+        .drop('col_2') \
+        .with_columns(
             (
                 pl.col('col_1')
                 .map_elements(
@@ -73,7 +75,6 @@ def transform_df(df: pl.DataFrame) -> pl.DataFrame:
                 .list.sort()
                 .list.to_struct('max_width', fields=['dim_1', 'dim_2', 'dim_3'])
             ),
-            pl.col('col_2'),
             pl.col('col_3').str.replace_all(r'[^0-9.]', '').cast(pl.Float64),
             pl.col('col_4').str.replace_all(r'[^0-9.]', '').cast(pl.Float64),
             pl.col('col_5').str.replace_all(r'[^0-9.]', '').cast(pl.Float64),
@@ -83,7 +84,6 @@ def transform_df(df: pl.DataFrame) -> pl.DataFrame:
         .unnest('col_1') \
         .drop(['col_8', 'col_9']) \
         .rename({
-            'col_2': 'box_type',
             'col_3': 'price_25',
             'col_4': 'price_100',
             'col_5': 'price_250',
@@ -109,13 +109,13 @@ def filter_df(df: pl.DataFrame) -> pl.DataFrame:
     return result
 
 def main():
-    # html = load_page()
-    # parse_html(html)
     df = load_csv()
     df = transform_df(df)
     df = filter_df(df)
-    print(df)
-    df.write_csv('tmp.csv')
+    df.write_csv('./data/cleaned_data.csv')
+
+    with pl.Config(tbl_cols=-1):
+        print(df)
 
 if __name__ == "__main__":
     main()
