@@ -23,7 +23,6 @@ minimize cost with fixed N box types
     - [ ] price calculation
 
 ```
-// need to take transpose of this for faster computation ... 
 |        | item 1 | item 2 | item 3 | ... | total |
 |--------|--------|--------|--------|-----|-------|
 | box 1  |   0    |   1    |   0    |  .  |   Σ   |

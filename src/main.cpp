@@ -1,8 +1,9 @@
 
+// how to prune more ....
+// remove any boxes that are = or larger in every dimension and cheaper
+// replace uint8/16 with just int
+// change to items = rows, boxes = columns
 /*
-- keep track of location ... use long long so can restart if stopped
-- brute force w/ small search space w/ threads
-- generate subsets of size N (via indices ... use unsigned short)
 - take any(item & subset)    TAKE | of all columns
      - if 0: terminate
 - take MSB index, price++
@@ -13,27 +14,48 @@
 feasibility_matrix
 return std::vector<float> prices
 */
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
+#include <ranges>
 #include <string>
 #include <sstream>
 #include <vector>
 
 
-using uint8 = uint_fast8_t;
-
 struct Item
 {
     std::string id;
-    std::array<uint8, 3> dims;
+    std::array<int, 3> dims;
     float price {};
+
+    bool operator<(const Item& rhs) const
+    {
+        return this->dims[0] < rhs.dims[0]
+            && this->dims[1] < rhs.dims[1]
+            && this->dims[2] < rhs.dims[2];
+    }
 };
 
-void construct_feasibility_matrix(const std::vector<Item>& t_boxes, const std::vector<Item> t_products)
+/*
+ * rows = boxes, columns = products
+ */
+std::vector<int> construct_feasibility_matrix(const std::vector<Item>& t_boxes, const std::vector<Item> t_products)
 {
-    // also need to read in items ...
+    std::vector<int> fm;  
+    fm.reserve(t_boxes.size() * t_products.size());
+
+    for (int i {}; i < t_boxes.size(); ++i)
+    {
+        for (int j {}; j < t_products.size(); ++j) 
+        {
+            fm[i*t_boxes.size()+j] = static_cast<int>(t_products[j] < t_boxes[i]);
+        }
+    }
+
+    return fm;
 }
 
 Item parse_line(const std::string& t_line, bool t_hasPrice = false)
@@ -44,9 +66,9 @@ Item parse_line(const std::string& t_line, bool t_hasPrice = false)
     
     std::getline(iss, item.id, ',');
 
-    std::getline(iss, tmp, ',');  item.dims[0] = static_cast<uint8>(std::stof(tmp)); // dim_1
-    std::getline(iss, tmp, ',');  item.dims[1] = static_cast<uint8>(std::stof(tmp)); // dim_2
-    std::getline(iss, tmp, ',');  item.dims[2] = static_cast<uint8>(std::stof(tmp)); // dim_3
+    std::getline(iss, tmp, ',');  item.dims[0] = static_cast<int>(std::stof(tmp)); // dim_1
+    std::getline(iss, tmp, ',');  item.dims[1] = static_cast<int>(std::stof(tmp)); // dim_2
+    std::getline(iss, tmp, ',');  item.dims[2] = static_cast<int>(std::stof(tmp)); // dim_3
 
     if (t_hasPrice)
     {
@@ -58,7 +80,7 @@ Item parse_line(const std::string& t_line, bool t_hasPrice = false)
 }
 
 /* Requires columns be id, dim1, dim2, dim3, price?, ... */
-void parse_csv(const std::string& t_boxPath, const std::string& t_productPath)
+std::pair<std::vector<Item>, std::vector<Item>> parse_csv(const std::string& t_boxPath, const std::string& t_productPath)
 {
     std::vector<Item> boxes; boxes.reserve(1'000);
     std::vector<Item> products; products.reserve(1'000);
@@ -82,28 +104,73 @@ void parse_csv(const std::string& t_boxPath, const std::string& t_productPath)
         Item product { parse_line(line) };
         products.push_back(product);
     }
+
+    return { boxes, products };
 }
 
-void generate_subsets(const uint_fast16_t N)
+bool is_covering(const int N, const int t_numBoxes, const std::vector<int>& t_positions, const std::vector<int>& t_fm)
 {
-   // given range of [0, N-1], generate subsets of size N 
-   // starting index
-}
+    bool result { true };
 
-bool is_covering()
-{
-    return false;
+    for (int i {}; i < N; ++i)
+    {
+        result &= std::any_of(
+                      cbegin(t_fm)+t_positions[i]*t_numBoxes, 
+                      cbegin(t_fm)+(t_positions[i]+1)*t_numBoxes, 
+                      [](const int x) { return x != 0; });
+    }
+
+    return result;
 }
 
 void calculate_price()
 {
+        
+}
 
+/*
+ *
+ */
+void compute(const int N, const int t_numBoxes, const int t_startIdx, const std::vector<int>& t_fm)  // fm is a bitset ? will need to precompute? 
+{
+    std::vector<int> positions;
+    positions.reserve(N);
+    positions[0] = t_startIdx;
+
+    int i { 0 };
+    while (t_startIdx + i < t_fm.size() - N + 2)
+    {
+        for (int j { 1 }; j < N; ++j) 
+        {
+            positions[j] = t_startIdx+i+j;
+        }
+
+        while (positions.back() < t_numBoxes) 
+        {
+            if (is_covering(N, t_numBoxes, positions, t_fm))
+            {
+                calculate_price(); // write to ostream or sth. 
+            }
+            ++positions.back();
+        }
+
+        ++i;
+    }
 }
 
 int main(int argc, char* argv[])
 {
-    std::string box_path { argv[1] }; // first argument
+    std::string box_path { argv[1] };     // first argument
     std::string product_path { argv[2] }; // second argument
+    int N { std::stoi(argv[3]) };
 
-    parse_csv(box_path, product_path);
+    auto [boxes, products] { parse_csv(box_path, product_path) };
+    auto fm { construct_feasibility_matrix(boxes, products) };
+
+    compute(N, boxes.size(), 0, fm);
+    // threads here
+    // for (int i {}; i < boxes.size() - N; ++i)
+    // {
+    // }
+    // compute();
 }
