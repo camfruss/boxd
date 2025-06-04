@@ -1,4 +1,10 @@
 
+.cache/
+
+build/
 venv/
+
 data/
+
+**/tmp.*
 

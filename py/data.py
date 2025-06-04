@@ -43,7 +43,7 @@ def parse_html(html: str) -> None:
             box_id = box.find('a').get_text(strip=True)  # type: ignore
             cols = [ col.get_text(strip=True) for col in box.find_all('td')[1:] ]  # type: ignore
             rows.append({
-                "id": box_id,
+                'id': box_id,
                 **{f'col_{i+1}': col for i, col in enumerate(cols)}
             })
         except:
@@ -102,10 +102,26 @@ def filter_df(df: pl.DataFrame) -> pl.DataFrame:
                 (pl.col('dim_1') % 2 == 0) & 
                 (pl.col('dim_2') % 2 == 0) & 
                 (pl.col('dim_3') % 2 == 0)
-             )
+            )
         ) \
         .sort('price_25') \
         .unique(['dim_1', 'dim_2', 'dim_3'], keep='first', maintain_order=True)
+
+    # cartesian product, remove boxes where there exists a larger, cheaper box
+    cross = result \
+        .join(other=result, how='cross') \
+        .filter(
+            (
+                (pl.col('dim_1') > pl.col('dim_1_right')) &
+                (pl.col('dim_2') > pl.col('dim_2_right')) &
+                (pl.col('dim_3') > pl.col('dim_3_right')) &
+                (pl.col('price_25') < pl.col('price_25_right'))
+            )
+        ) \
+        .select(pl.col('id')) \
+        .unique()
+    
+    result = result.join(cross, on=['id'], how='anti')
     return result
 
 def main():

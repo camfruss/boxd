@@ -21,8 +21,11 @@ return std::vector<float> prices
 #include <iostream>
 #include <ranges>
 #include <string>
+#include <string_view>
 #include <sstream>
 #include <vector>
+
+using namespace std::string_view_literals;
 
 
 struct Item
@@ -40,18 +43,19 @@ struct Item
 };
 
 /*
- * rows = boxes, columns = products
+ * rows = products, columns = boxes
  */
 std::vector<int> construct_feasibility_matrix(const std::vector<Item>& t_boxes, const std::vector<Item> t_products)
 {
     std::vector<int> fm;  
     fm.reserve(t_boxes.size() * t_products.size());
 
-    for (int i {}; i < t_boxes.size(); ++i)
+    int i {};
+    for (const auto& product : t_products)
     {
-        for (int j {}; j < t_products.size(); ++j) 
+        for (const auto& box : t_boxes) 
         {
-            fm[i*t_boxes.size()+j] = static_cast<int>(t_products[j] < t_boxes[i]);
+            fm[i++] = static_cast<int>(product < box);
         }
     }
 
@@ -123,15 +127,21 @@ bool is_covering(const int N, const int t_numBoxes, const std::vector<int>& t_po
     return result;
 }
 
-void calculate_price()
+double calculate_price(const std::vector<int>& t_positions, const std::vector<float>& t_prices)
 {
-        
+    float result {};
+    for (int i : t_positions) 
+    {
+        result += t_prices[i];
+    }
+
+    return result;
 }
 
 /*
  *
  */
-void compute(const int N, const int t_numBoxes, const int t_startIdx, const std::vector<int>& t_fm)  // fm is a bitset ? will need to precompute? 
+void compute(const int N, const int t_numBoxes, const int t_startIdx, const std::vector<float>& t_prices, const std::vector<int>& t_fm)
 {
     std::vector<int> positions;
     positions.reserve(N);
@@ -149,7 +159,7 @@ void compute(const int N, const int t_numBoxes, const int t_startIdx, const std:
         {
             if (is_covering(N, t_numBoxes, positions, t_fm))
             {
-                calculate_price(); // write to ostream or sth. 
+                calculate_price(positions, t_prices);
             }
             ++positions.back();
         }
@@ -160,14 +170,40 @@ void compute(const int N, const int t_numBoxes, const int t_startIdx, const std:
 
 int main(int argc, char* argv[])
 {
-    std::string box_path { argv[1] };     // first argument
-    std::string product_path { argv[2] }; // second argument
-    int N { std::stoi(argv[3]) };
+    if (argc % 2 == 1)
+    {
+        return 1;
+    }
+
+    int N { 10 };
+    std::string product_path {}, box_path { "./data/boxes.csv" };
+    for (int i {}; i < argc; ++i)
+    {
+        std::string arg = argv[i];
+        if (arg == "-N")
+        {
+            N = std::stoi(argv[++i]);
+        } 
+        else if (arg == "--boxes" && std::string{ argv[i+1] }.ends_with(".csv"sv))
+        {
+            
+        } 
+        else if (arg == "--products" && std::string{ argv[i+1] }.ends_with(".csv"sv))
+        {
+
+        }
+    }
 
     auto [boxes, products] { parse_csv(box_path, product_path) };
     auto fm { construct_feasibility_matrix(boxes, products) };
 
-    compute(N, boxes.size(), 0, fm);
+    std::vector<float> prices; 
+    prices.reserve(boxes.size());
+    std::transform(begin(boxes), end(boxes), begin(prices), 
+            [](const Item& item) { return item.price; });
+
+    compute(N, boxes.size(), 0, prices, fm);
+    
     // threads here
     // for (int i {}; i < boxes.size() - N; ++i)
     // {
